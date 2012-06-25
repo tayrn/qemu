@@ -190,6 +190,9 @@ slirp-obj-y += slirp.o mbuf.o misc.o sbuf.o socket.o tcp_input.o tcp_output.o
 slirp-obj-y += tcp_subr.o tcp_timer.o udp.o bootp.o tftp.o arp_table.o
 common-obj-$(CONFIG_SLIRP) += $(addprefix slirp/, $(slirp-obj-y))
 
+common-obj-y += backends/rng.o backends/rng-egd.o
+common-obj-$(CONFIG_POSIX) += backends/rng-random.o
+
 # xen backend driver support
 common-obj-$(CONFIG_XEN_BACKEND) += xen_backend.o xen_devconfig.o
 common-obj-$(CONFIG_XEN_BACKEND) += xen_console.o xenfb.o xen_disk.o xen_nic.o
