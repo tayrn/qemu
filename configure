@@ -102,6 +102,7 @@ audio_win_int=""
 cc_i386=i386-pc-linux-gnu-gcc
 libs_qga=""
 debug_info="yes"
+shell="sh"
 
 target_list=""
 
@@ -461,6 +462,13 @@ SunOS)
   smbd="${SMBD-/usr/sfw/sbin/smbd}"
   needs_libsunmath="no"
   solarisrev=`uname -r | cut -f2 -d.`
+  # have to select again, because `uname -m` returns i86pc
+  # even on an x86_64 box.
+  solariscpu=`isainfo -k`
+  shell="bash"
+  if test "${solariscpu}" = "amd64" ; then
+    cpu="x86_64"
+  fi
   if [ "$cpu" = "i386" -o "$cpu" = "x86_64" ] ; then
     if test "$solarisrev" -le 9 ; then
       if test -f /opt/SUNWspro/prod/lib/libsunmath.so.1; then
@@ -488,7 +496,7 @@ SunOS)
   QEMU_CFLAGS="-std=gnu99 $QEMU_CFLAGS"
   solarisnetlibs="-lsocket -lnsl -lresolv"
   LIBS="$solarisnetlibs $LIBS"
-  libs_qga="$solarisnetlibs $libs_qga"
+  libs_qga="$solarisnetlibs -lxnet $libs_qga"
 ;;
 AIX)
   aix="yes"
@@ -3509,6 +3517,7 @@ echo "LIBS+=$LIBS" >> $config_host_mak
 echo "LIBS_TOOLS+=$libs_tools" >> $config_host_mak
 echo "EXESUF=$EXESUF" >> $config_host_mak
 echo "LIBS_QGA+=$libs_qga" >> $config_host_mak
+echo "SHELL=$shell" >> $config_host_mak
 echo "POD2MAN=$POD2MAN" >> $config_host_mak
 
 # generate list of library paths for linker script
@@ -3868,6 +3877,9 @@ includes="-I\$(SRC_PATH)/tcg $includes"
 
 if test "$linux" = "yes" ; then
   includes="-I\$(SRC_PATH)/linux-headers $includes"
+fi
+if test "$solaris" = "yes"; then
+  includes="-I\$(SRC_PATH)/solaris-headers $includes"
 fi
 
 if test "$target_user_only" = "yes" ; then
