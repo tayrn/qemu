@@ -188,6 +188,7 @@ int mem_prealloc = 0; /* force preallocation of physical target memory */
 #endif
 int nb_nics;
 NICInfo nd_table[MAX_NICS];
+int vm_setup = 0;
 int autostart;
 static int rtc_utc = 1;
 static int rtc_date_offset = -1; /* -1 means no change */
@@ -429,6 +430,7 @@ StatusInfo *qmp_query_status(Error **errp)
     info->running = runstate_is_running();
     info->singlestep = singlestep;
     info->status = current_run_state;
+    info->hwsetup = vm_setup;
 
     return info;
 }
@@ -3616,6 +3618,7 @@ int main(int argc, char **argv, char **envp)
     }
 
     qdev_machine_creation_done();
+    vm_setup = 1;
 
     if (rom_load_all() != 0) {
         fprintf(stderr, "rom loading failed\n");

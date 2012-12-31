@@ -14,6 +14,7 @@
 
 extern const char *bios_name;
 
+extern int vm_setup;
 extern const char *qemu_name;
 extern uint8_t qemu_uuid[];
 int qemu_uuid_parse(const char *str, uint8_t *uuid);

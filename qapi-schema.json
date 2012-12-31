@@ -139,9 +139,11 @@
 # Since:  0.14.0
 #
 # Notes: @singlestep is enabled through the GDB stub
+# #ADDED FOR SMARTOS COMPATIBILITY
+# hwsetup/vm_setup is SmartOS specific
 ##
 { 'type': 'StatusInfo',
-  'data': {'running': 'bool', 'singlestep': 'bool', 'status': 'RunState'} }
+  'data': {'running': 'bool', 'singlestep': 'bool', 'status': 'RunState', 'hwsetup': 'bool'} }
 
 ##
 # @query-status:
