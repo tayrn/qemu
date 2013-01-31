@@ -2746,6 +2746,22 @@ DEF("qtest-log", HAS_ARG, QEMU_OPTION_qtest_log,
     "-qtest-log LOG  specify tracing options\n",
     QEMU_ARCH_ALL)
 
+DEF("no-kvm", 0, QEMU_OPTION_no_kvm,
+    "-no-kvm         disable KVM hardware virtualization\n",
+    QEMU_ARCH_ALL)
+DEF("no-kvm-irqchip", 0, QEMU_OPTION_no_kvm_irqchip,
+    "-no-kvm-irqchip disable KVM kernel mode PIC/IOAPIC/LAPIC\n",
+    QEMU_ARCH_I386)
+DEF("no-kvm-pit", 0, QEMU_OPTION_no_kvm_pit,
+    "-no-kvm-pit     disable KVM kernel mode PIT\n",
+    QEMU_ARCH_I386)
+DEF("no-kvm-pit-reinjection", 0, QEMU_OPTION_no_kvm_pit_reinjection,
+    "-no-kvm-pit-reinjection\n"
+    "                disable KVM kernel mode PIT interrupt reinjection\n",
+    QEMU_ARCH_I386)
+HXCOMM -tdf is deprecated and ignored today
+DEF("tdf", 0, QEMU_OPTION_tdf, "", QEMU_ARCH_ALL)
+
 HXCOMM This is the last statement. Insert new options before this line!
 STEXI
 @end table

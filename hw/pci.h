@@ -6,6 +6,7 @@
 #include "qdev.h"
 #include "memory.h"
 #include "dma.h"
+#include "kvm.h"
 
 /* PCI includes legacy ISA access.  */
 #include "isa.h"
@@ -133,6 +134,9 @@ enum {
     QEMU_PCI_CAP_SLOTID = (1 << QEMU_PCI_SLOTID_BITNR),
 };
 
+typedef int (*msix_mask_notifier_func)(PCIDevice *, unsigned vector,
+				       int masked);
+
 #define TYPE_PCI_DEVICE "pci-device"
 #define PCI_DEVICE(obj) \
      OBJECT_CHECK(PCIDevice, (obj), TYPE_PCI_DEVICE)
@@ -243,11 +247,28 @@ struct PCIDevice {
     bool has_rom;
     MemoryRegion rom;
     uint32_t rom_bar;
+
+    /* MSI entries */
+    int msi_entries_nr;
+    struct KVMMsiMessage *msi_irq_entries;
+
+    /* How much space does an MSIX table need. */
+    /* The spec requires giving the table structure
+     * a 4K aligned region all by itself. Align it to
+     * target pages so that drivers can do passthrough
+     * on the rest of the region. */
+    target_phys_addr_t msix_page_size;
+
+    KVMMsiMessage *msix_irq_entries;
+
+    msix_mask_notifier_func msix_mask_notifier;
 };
 
 void pci_register_bar(PCIDevice *pci_dev, int region_num,
                       uint8_t attr, MemoryRegion *memory);
 pcibus_t pci_get_bar_addr(PCIDevice *pci_dev, int region_num);
+
+int pci_map_irq(PCIDevice *pci_dev, int pin);
 
 int pci_add_capability(PCIDevice *pdev, uint8_t cap_id,
                        uint8_t offset, uint8_t size);
@@ -313,6 +334,9 @@ PCIBus *pci_get_bus_devfn(int *devfnp, const char *devaddr);
 
 int pci_read_devaddr(Monitor *mon, const char *addr, int *domp, int *busp,
                      unsigned *slotp);
+
+int pci_parse_host_devaddr(const char *addr, int *segp, int *busp,
+                           int *slotp, int *funcp);
 
 void pci_device_deassert_intx(PCIDevice *dev);
 

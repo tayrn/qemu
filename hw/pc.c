@@ -917,10 +917,14 @@ static DeviceState *apic_init(void *env, uint8_t apic_id)
         apic_mapped = 1;
     }
 
+#ifdef UPSTREAM_KVM
     /* KVM does not support MSI yet. */
     if (!kvm_irqchip_in_kernel()) {
         msi_supported = true;
     }
+#else
+     msi_supported = true;
+#endif
 
     if (xen_msi_support()) {
         msi_supported = true;
@@ -946,9 +950,17 @@ static void pc_cpu_reset(void *opaque)
     env->halted = !cpu_is_bsp(env);
 }
 
-static CPUX86State *pc_new_cpu(const char *cpu_model)
+CPUX86State *pc_new_cpu(const char *cpu_model)
 {
     CPUX86State *env;
+
+    if (cpu_model == NULL) {
+#ifdef TARGET_X86_64
+        cpu_model = "qemu64";
+#else
+        cpu_model = "qemu32";
+#endif
+    }
 
     env = cpu_init(cpu_model);
     if (!env) {
@@ -968,14 +980,6 @@ void pc_cpus_init(const char *cpu_model)
     int i;
 
     /* init CPUs */
-    if (cpu_model == NULL) {
-#ifdef TARGET_X86_64
-        cpu_model = "qemu64";
-#else
-        cpu_model = "qemu32";
-#endif
-    }
-
     for(i = 0; i < smp_cpus; i++) {
         pc_new_cpu(cpu_model);
     }

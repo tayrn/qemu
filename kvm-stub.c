@@ -16,6 +16,8 @@
 #include "gdbstub.h"
 #include "kvm.h"
 
+KVMState *kvm_state;
+
 int kvm_init_vcpu(CPUArchState *env)
 {
     return -ENOSYS;
@@ -119,6 +121,42 @@ int kvm_set_ioeventfd_mmio(int fd, uint32_t adr, uint32_t val, bool assign, uint
     return -ENOSYS;
 }
 
+int kvm_has_gsi_routing(void)
+{
+    return 0;
+}
+
+int kvm_get_irq_route_gsi(void)
+{
+    return -ENOSYS;
+}
+
+int kvm_msi_message_add(KVMMsiMessage *msg)
+{
+    return -ENOSYS;
+}
+
+int kvm_msi_message_del(KVMMsiMessage *msg)
+{
+    return -ENOSYS;
+}
+
+int kvm_msi_message_update(KVMMsiMessage *old, KVMMsiMessage *new)
+{
+    return -ENOSYS;
+}
+
+int kvm_irqchip_commit_routes(KVMState *s)
+{
+    return -ENOSYS;
+}
+
+int kvm_irqchip_set_irq(KVMState *s, int irq, int level)
+{
+    assert(0);
+    return -ENOSYS;
+}
+
 int kvm_on_sigbus_vcpu(CPUArchState *env, int code, void *addr)
 {
     return 1;
@@ -127,4 +165,9 @@ int kvm_on_sigbus_vcpu(CPUArchState *env, int code, void *addr)
 int kvm_on_sigbus(int code, void *addr)
 {
     return 1;
+}
+
+int kvm_set_irqfd(int gsi, int fd, bool assigned)
+{
+    return -ENOSYS;
 }

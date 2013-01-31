@@ -2983,6 +2983,37 @@ int main(int argc, char **argv, char **envp)
                     machine = machine_parse(optarg);
                 }
                 break;
+	    case QEMU_OPTION_no_kvm:
+                olist = qemu_find_opts("machine");
+                qemu_opts_parse(olist, "accel=tcg", 0);
+                break;
+#ifdef CONFIG_KVM_OPTIONS
+	    case QEMU_OPTION_no_kvm_irqchip: {
+                olist = qemu_find_opts("machine");
+                qemu_opts_parse(olist, "kernel_irqchip=off", 0);
+		break;
+	    }
+	    case QEMU_OPTION_no_kvm_pit: {
+                fprintf(stderr, "Warning: KVM PIT can no longer be disabled "
+                                "separately.\n");
+		break;
+	    }
+            case QEMU_OPTION_no_kvm_pit_reinjection: {
+                static GlobalProperty kvm_pit_lost_tick_policy[] = {
+                    {
+                        .driver   = "kvm-pit",
+                        .property = "lost_tick_policy",
+                        .value    = "discard",
+                    },
+                    { /* end of list */ }
+                };
+
+                fprintf(stderr, "Warning: option deprecated, use "
+                        "lost_tick_policy property of kvm-pit instead.\n");
+                qdev_prop_register_global_list(kvm_pit_lost_tick_policy);
+                break;
+            }
+#endif
             case QEMU_OPTION_usb:
                 usb_enabled = 1;
                 break;
@@ -3066,6 +3097,10 @@ int main(int argc, char **argv, char **envp)
             case QEMU_OPTION_semihosting:
                 semihosting_enabled = 1;
                 break;
+            case QEMU_OPTION_tdf:
+                fprintf(stderr, "Warning: user space PIT time drift fix "
+                                "is no longer supported.\n");
+		break;
             case QEMU_OPTION_name:
                 qemu_name = g_strdup(optarg);
 		 {

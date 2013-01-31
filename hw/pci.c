@@ -29,8 +29,12 @@
 #include "net.h"
 #include "sysemu.h"
 #include "loader.h"
+#include "hw/pc.h"
+#include "kvm.h"
+#include "device-assignment.h"
 #include "range.h"
 #include "qmp-commands.h"
+#include "msi.h"
 
 //#define DEBUG_PCI
 #ifdef DEBUG_PCI
@@ -351,6 +355,7 @@ static int get_pci_config_device(QEMUFile *f, void *pv, size_t size)
     memcpy(s->config, config, size);
 
     pci_update_mappings(s);
+    msi_post_load(s);
 
     g_free(config);
     return 0;
@@ -535,6 +540,83 @@ static int pci_parse_devaddr(const char *addr, int *domp, int *busp,
     *slotp = slot;
     if (funcp != NULL)
         *funcp = func;
+    return 0;
+}
+
+/*
+ * Parse device seg and bdf in device assignment command:
+ *
+ * -pcidevice host=[seg:]bus:dev.func
+ *
+ * Parse [seg:]<bus>:<slot>.<func> return -1 on error
+ */
+int pci_parse_host_devaddr(const char *addr, int *segp, int *busp,
+                           int *slotp, int *funcp)
+{
+    const char *p;
+    char *e;
+    int val;
+    int seg = 0, bus = 0, slot = 0, func = 0;
+
+    /* parse optional seg */
+    p = addr;
+    val = 0;
+    while (1) {
+        p = strchr(p, ':');
+        if (p) {
+            val++;
+            p++;
+        } else
+            break;
+    }
+    if (val <= 0 || val > 2)
+        return -1;
+
+    p = addr;
+    if (val == 2) {
+        val = strtoul(p, &e, 16);
+        if (e == p)
+            return -1;
+        if (*e == ':') {
+            seg = val;
+            p = e + 1;
+        }
+    } else
+        seg = 0;
+
+
+    /* parse bdf */
+    val = strtoul(p, &e, 16);
+    if (e == p)
+	return -1;
+    if (*e == ':') {
+	bus = val;
+	p = e + 1;
+	val = strtoul(p, &e, 16);
+	if (e == p)
+	    return -1;
+	if (*e == '.') {
+	    slot = val;
+	    p = e + 1;
+	    val = strtoul(p, &e, 16);
+	    if (e == p)
+		return -1;
+	    func = val;
+	} else
+	    return -1;
+    } else
+	return -1;
+
+    if (seg > 0xffff || bus > 0xff || slot > 0x1f || func > 0x7)
+	return -1;
+
+    if (*e)
+	return -1;
+
+    *segp = seg;
+    *busp = bus;
+    *slotp = slot;
+    *funcp = func;
     return 0;
 }
 
@@ -1029,6 +1111,14 @@ void pci_default_write_config(PCIDevice *d, uint32_t addr, uint32_t val, int l)
         d->config[addr + i] = (d->config[addr + i] & ~wmask) | (val & wmask);
         d->config[addr + i] &= ~(val & w1cmask); /* W1C: Write 1 to Clear */
     }
+
+#ifdef CONFIG_KVM_DEVICE_ASSIGNMENT
+    if (kvm_enabled() && kvm_irqchip_in_kernel() &&
+        addr >= PIIX_CONFIG_IRQ_ROUTE &&
+	addr < PIIX_CONFIG_IRQ_ROUTE + 4)
+        assigned_dev_update_irqs();
+#endif /* CONFIG_KVM_DEVICE_ASSIGNMENT */
+
     if (ranges_overlap(addr, l, PCI_BASE_ADDRESS_0, 24) ||
         ranges_overlap(addr, l, PCI_ROM_ADDRESS, 4) ||
         ranges_overlap(addr, l, PCI_ROM_ADDRESS1, 4) ||
@@ -1057,6 +1147,11 @@ static void pci_set_irq(void *opaque, int irq_num, int level)
     if (pci_irq_disabled(pci_dev))
         return;
     pci_change_irq_level(pci_dev, irq_num, change);
+}
+
+int pci_map_irq(PCIDevice *pci_dev, int pin)
+{
+    return pci_dev->bus->map_irq(pci_dev, pin);
 }
 
 /***********************************************************/

@@ -149,6 +149,9 @@ void piix4_smbus_register_device(SMBusDevice *dev, uint8_t addr);
 extern int no_hpet;
 
 /* piix_pci.c */
+/* config space register for IRQ routing */
+#define PIIX_CONFIG_IRQ_ROUTE 0x60
+
 struct PCII440FXState;
 typedef struct PCII440FXState PCII440FXState;
 
@@ -167,6 +170,10 @@ PCIBus *i440fx_init(PCII440FXState **pi440fx_state, int *piix_devfn,
 /* piix4.c */
 extern PCIDevice *piix4_dev;
 int piix4_init(PCIBus *bus, ISABus **isa_bus, int devfn);
+
+int piix_get_irq(int pin);
+
+int ipf_map_irq(PCIDevice *pci_dev, int irq_num);
 
 /* vga.c */
 enum vga_retrace_method {

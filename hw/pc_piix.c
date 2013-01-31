@@ -52,6 +52,8 @@ static const int ide_iobase[MAX_IDE_BUS] = { 0x1f0, 0x170 };
 static const int ide_iobase2[MAX_IDE_BUS] = { 0x3f6, 0x376 };
 static const int ide_irq[MAX_IDE_BUS] = { 14, 15 };
 
+const char *global_cpu_model; /* cpu hotadd */
+
 static void kvm_piix3_setup_irq_routing(bool pci_enabled)
 {
 #ifdef CONFIG_KVM
@@ -151,6 +153,8 @@ static void pc_init1(MemoryRegion *system_memory,
     MemoryRegion *pci_memory;
     MemoryRegion *rom_memory;
 
+    global_cpu_model = cpu_model;
+
     pc_cpus_init(cpu_model);
 
     if (kvmclock_enabled) {
@@ -241,7 +245,7 @@ static void pc_init1(MemoryRegion *system_memory,
         if (!pci_enabled || (nd->model && strcmp(nd->model, "ne2k_isa") == 0))
             pc_init_ne2k_isa(isa_bus, nd);
         else
-            pci_nic_init_nofail(nd, "e1000", NULL);
+            pci_nic_init_nofail(nd, "rtl8139", NULL);
     }
 
     ide_drive_get(hd, MAX_IDE_BUS);
@@ -358,6 +362,7 @@ static QEMUMachine pc_machine_v1_1 = {
     .init = pc_init_pci,
     .max_cpus = 255,
     .is_default = 1,
+    .default_machine_opts = "accel=kvm,kernel_irqchip=on",
 };
 
 #define PC_COMPAT_1_0 \
@@ -388,6 +393,7 @@ static QEMUMachine pc_machine_v1_0 = {
     .desc = "Standard PC",
     .init = pc_init_pci,
     .max_cpus = 255,
+    .default_machine_opts = "accel=kvm,kernel_irqchip=on",
     .compat_props = (GlobalProperty[]) {
         PC_COMPAT_1_0,
         { /* end of list */ }
@@ -402,6 +408,7 @@ static QEMUMachine pc_machine_v0_15 = {
     .desc = "Standard PC",
     .init = pc_init_pci,
     .max_cpus = 255,
+    .default_machine_opts = "accel=kvm,kernel_irqchip=on",
     .compat_props = (GlobalProperty[]) {
         PC_COMPAT_0_15,
         { /* end of list */ }
@@ -433,6 +440,7 @@ static QEMUMachine pc_machine_v0_14 = {
     .desc = "Standard PC",
     .init = pc_init_pci,
     .max_cpus = 255,
+    .default_machine_opts = "accel=kvm,kernel_irqchip=on",
     .compat_props = (GlobalProperty[]) {
         PC_COMPAT_0_14, 
         {
@@ -465,6 +473,7 @@ static QEMUMachine pc_machine_v0_13 = {
     .desc = "Standard PC",
     .init = pc_init_pci_no_kvmclock,
     .max_cpus = 255,
+    .default_machine_opts = "accel=kvm,kernel_irqchip=on",
     .compat_props = (GlobalProperty[]) {
         PC_COMPAT_0_13,
         {
@@ -501,6 +510,7 @@ static QEMUMachine pc_machine_v0_12 = {
     .desc = "Standard PC",
     .init = pc_init_pci_no_kvmclock,
     .max_cpus = 255,
+    .default_machine_opts = "accel=kvm,kernel_irqchip=on",
     .compat_props = (GlobalProperty[]) {
         PC_COMPAT_0_12,
         {
@@ -533,6 +543,7 @@ static QEMUMachine pc_machine_v0_11 = {
     .desc = "Standard PC, qemu 0.11",
     .init = pc_init_pci_no_kvmclock,
     .max_cpus = 255,
+    .default_machine_opts = "accel=kvm,kernel_irqchip=on",
     .compat_props = (GlobalProperty[]) {
         PC_COMPAT_0_11,
         {
@@ -553,6 +564,7 @@ static QEMUMachine pc_machine_v0_10 = {
     .desc = "Standard PC, qemu 0.10",
     .init = pc_init_pci_no_kvmclock,
     .max_cpus = 255,
+    .default_machine_opts = "accel=kvm,kernel_irqchip=on",
     .compat_props = (GlobalProperty[]) {
         PC_COMPAT_0_11,
         {
@@ -585,6 +597,7 @@ static QEMUMachine isapc_machine = {
     .desc = "ISA-only PC",
     .init = pc_init_isa,
     .max_cpus = 1,
+    .default_machine_opts = "accel=kvm,kernel_irqchip=on",
     .compat_props = (GlobalProperty[]) {
         {
             .driver   = "pc-sysfw",

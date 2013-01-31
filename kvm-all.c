@@ -77,6 +77,7 @@ struct KVMState
     int pit_state2;
     int xsave, xcrs;
     int many_ioeventfds;
+    int intx_set_mask;
     /* The man page (and posix) say ioctl numbers are signed int, but
      * they're not.  Linux, glibc and *BSD all treat ioctl numbers as
      * unsigned, and treating them as signed here can break things */
@@ -941,8 +942,8 @@ static void kvm_init_irq_routing(KVMState *s)
     kvm_arch_init_irq_routing(s);
 }
 
-static void kvm_add_routing_entry(KVMState *s,
-                                  struct kvm_irq_routing_entry *entry)
+void kvm_add_routing_entry(KVMState *s,
+                           struct kvm_irq_routing_entry *entry)
 {
     struct kvm_irq_routing_entry *new;
     int n, size;
@@ -991,6 +992,12 @@ int kvm_irqchip_commit_routes(KVMState *s)
 static void kvm_init_irq_routing(KVMState *s)
 {
 }
+
+int kvm_irqchip_commit_routes(KVMState *s)
+{
+    return -ENOSYS;
+}
+
 #endif /* !KVM_CAP_IRQ_ROUTING */
 
 static int kvm_irqchip_create(KVMState *s)
@@ -1126,6 +1133,8 @@ int kvm_init(void)
 #ifdef KVM_CAP_PIT_STATE2
     s->pit_state2 = kvm_check_extension(s, KVM_CAP_PIT_STATE2);
 #endif
+
+    s->intx_set_mask = kvm_check_extension(s, KVM_CAP_PCI_2_3);
 
     ret = kvm_arch_init(s);
     if (ret < 0) {
@@ -1494,6 +1503,11 @@ int kvm_has_gsi_routing(void)
 #endif
 }
 
+int kvm_has_intx_set_mask(void)
+{
+    return kvm_state->intx_set_mask;
+}
+
 int kvm_allows_irq0_override(void)
 {
     return !kvm_irqchip_in_kernel() || kvm_has_gsi_routing();
@@ -1766,6 +1780,23 @@ int kvm_set_ioeventfd_pio_word(int fd, uint16_t addr, uint16_t val, bool assign)
     return 0;
 }
 
+int kvm_set_irqfd(int gsi, int fd, bool assigned)
+{
+    struct kvm_irqfd irqfd = {
+        .fd = fd,
+        .gsi = gsi,
+        .flags = assigned ? 0 : KVM_IRQFD_FLAG_DEASSIGN,
+    };
+    int r;
+    if (!kvm_enabled() || !kvm_irqchip_in_kernel())
+        return -ENOSYS;
+
+    r = kvm_vm_ioctl(kvm_state, KVM_IRQFD, &irqfd);
+    if (r < 0)
+        return r;
+    return 0;
+}
+
 int kvm_on_sigbus_vcpu(CPUArchState *env, int code, void *addr)
 {
     return kvm_arch_on_sigbus_vcpu(env, code, addr);
@@ -1775,3 +1806,6 @@ int kvm_on_sigbus(int code, void *addr)
 {
     return kvm_arch_on_sigbus(code, addr);
 }
+
+#undef PAGE_SIZE
+#include "qemu-kvm.c"
