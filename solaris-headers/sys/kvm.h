@@ -42,6 +42,34 @@
 
 #define	KVM_API_VERSION 12   /* same as linux (for qemu compatability...) */
 
+/* *** Deprecated interfaces *** */
+#define __KVM_DEPRECATED_VM_R_0x70 _IOR(KVMIO, 0x70, struct kvm_assigned_irq)
+
+struct kvm_assigned_irq {
+	uint32_t assigned_dev_id;
+	uint32_t host_irq; /* ignored (legacy field) */
+	uint32_t guest_irq;
+	uint32_t flags;
+	union {
+		uint32_t reserved[12];
+	};
+};
+
+struct kvm_assigned_msix_nr {
+	uint32_t assigned_dev_id;
+	uint16_t entry_nr;
+	uint16_t padding;
+};
+
+#define KVM_MAX_MSIX_PER_DEV		256
+struct kvm_assigned_msix_entry {
+	uint32_t assigned_dev_id;
+	uint32_t gsi;
+	uint16_t entry; /* The index of entry in the MSI-X table */
+	uint16_t padding[3];
+};
+
+
 /* for KVM_CREATE_MEMORY_REGION */
 typedef struct kvm_memory_region {
 	uint32_t slot;
@@ -491,6 +519,15 @@ typedef struct kvm_x86_mce {
 } kvm_x86_mce_t;
 #endif /* KVM_CAP_MCE */
 
+#define KVM_IRQFD_FLAG_DEASSIGN (1 << 0)
+
+struct kvm_irqfd {
+	uint32_t fd;
+	uint32_t gsi;
+	uint32_t flags;
+	uint8_t  pad[20];
+};
+
 typedef struct kvm_clock_data {
 	uint64_t clock;
 	uint32_t flags;
@@ -529,8 +566,21 @@ typedef struct kvm_clock_data {
 					    struct kvm_coalesced_mmio_zone)
 #define	KVM_UNREGISTER_COALESCED_MMIO _IOW(KVMIO,  0x68, \
 					    struct kvm_coalesced_mmio_zone)
-#define	KVM_SET_GSI_ROUTING	_IOW(KVMIO,  0x6a, struct kvm_irq_routing)
+#define KVM_ASSIGN_PCI_DEVICE     _IOR(KVMIO,  0x69, \
+				       struct kvm_assigned_pci_dev)
+#define KVM_SET_GSI_ROUTING       _IOW(KVMIO,  0x6a, struct kvm_irq_routing)
+/* deprecated, replaced by KVM_ASSIGN_DEV_IRQ */
+#define KVM_ASSIGN_IRQ            __KVM_DEPRECATED_VM_R_0x70
+#define KVM_ASSIGN_DEV_IRQ        _IOW(KVMIO,  0x70, struct kvm_assigned_irq)
 #define	KVM_REINJECT_CONTROL	_IO(KVMIO,   0x71)
+#define KVM_DEASSIGN_PCI_DEVICE   _IOW(KVMIO,  0x72, \
+				       struct kvm_assigned_pci_dev)
+#define KVM_ASSIGN_SET_MSIX_NR    _IOW(KVMIO,  0x73, \
+				       struct kvm_assigned_msix_nr)
+#define KVM_ASSIGN_SET_MSIX_ENTRY _IOW(KVMIO,  0x74, \
+				       struct kvm_assigned_msix_entry)
+#define KVM_DEASSIGN_DEV_IRQ      _IOW(KVMIO,  0x75, struct kvm_assigned_irq)
+#define KVM_IRQFD                 _IOW(KVMIO,  0x76, struct kvm_irqfd)
 #define	KVM_CREATE_PIT2		_IOW(KVMIO,  0x77, struct kvm_pit_config)
 #define	KVM_SET_BOOT_CPU_ID	_IO(KVMIO,   0x78)
 #define KVM_IOEVENTFD             _IOW(KVMIO,  0x79, struct kvm_ioeventfd)
@@ -542,6 +592,9 @@ typedef struct kvm_clock_data {
 /* Available with KVM_CAP_TSC_CONTROL */
 #define KVM_SET_TSC_KHZ           _IO(KVMIO,  0xa2)
 #define KVM_GET_TSC_KHZ           _IO(KVMIO,  0xa3)
+/* Available with KVM_CAP_PCI_2_3 */
+#define KVM_ASSIGN_SET_INTX_MASK  _IOW(KVMIO,  0xa4, \
+				       struct kvm_assigned_pci_dev)
 
 /*
  * ioctls for vcpu fds
@@ -601,5 +654,29 @@ typedef struct kvm_clock_data {
 #define KVM_KVMCLOCK_CTRL   _IO(KVMIO,   0xad)
 
 #define KVM_DEV_ASSIGN_ENABLE_IOMMU (1 << 0)
+#define KVM_DEV_ASSIGN_PCI_2_3		(1 << 1)
+#define KVM_DEV_ASSIGN_MASK_INTX	(1 << 2)
+
+struct kvm_assigned_pci_dev {
+	uint32_t assigned_dev_id;
+	uint32_t busnr;
+	uint32_t devfn;
+	uint32_t flags;
+	uint32_t segnr;
+	union {
+		uint32_t reserved[11];
+	};
+};
+
+#define KVM_DEV_IRQ_HOST_INTX    (1 << 0)
+#define KVM_DEV_IRQ_HOST_MSI     (1 << 1)
+#define KVM_DEV_IRQ_HOST_MSIX    (1 << 2)
+
+#define KVM_DEV_IRQ_GUEST_INTX   (1 << 8)
+#define KVM_DEV_IRQ_GUEST_MSI    (1 << 9)
+#define KVM_DEV_IRQ_GUEST_MSIX   (1 << 10)
+
+#define KVM_DEV_IRQ_HOST_MASK	 0x00ff
+#define KVM_DEV_IRQ_GUEST_MASK   0xff00
 
 #endif /* __KVM_H */

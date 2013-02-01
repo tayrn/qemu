@@ -8,7 +8,10 @@
 #ifndef THE_ORIGINAL_AND_TRUE_QEMU_KVM_H
 #define THE_ORIGINAL_AND_TRUE_QEMU_KVM_H
 
+/* XXX was this renamed??
 #include "cpu.h"
+*/
+#include "cpus.h"
 
 #include <signal.h>
 #include <stdlib.h>
@@ -21,7 +24,9 @@
 #define __user       /* temporary, until installed via make headers_install */
 #endif
 
+/*XXX I'm not on linux!
 #include <linux/kvm.h>
+*/
 
 #include <signal.h>
 
