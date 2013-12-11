@@ -37,8 +37,10 @@
 #include "migration.h"
 #include "monitor.h"
 #include "hw/hw.h"
+#include "spice-display.h"
 
-static const int on=1, off=0;
+/* our patch to mainline */
+#define SPICE_UNIX_SOCKET 1
 
 /* core bits */
 
@@ -47,6 +49,7 @@ static Notifier migration_state;
 static const char *auth = "spice";
 static char *auth_passwd;
 static time_t auth_expires = TIME_MAX;
+static int spice_migration_completed;
 int using_spice = 0;
 
 static QemuThread me;
@@ -286,6 +289,7 @@ typedef struct SpiceMigration {
 } SpiceMigration;
 
 static void migrate_connect_complete_cb(SpiceMigrateInstance *sin);
+static void migrate_end_complete_cb(SpiceMigrateInstance *sin);
 
 static const SpiceMigrateInterface migrate_interface = {
     .base.type = SPICE_INTERFACE_MIGRATION,
@@ -293,7 +297,7 @@ static const SpiceMigrateInterface migrate_interface = {
     .base.major_version = SPICE_INTERFACE_MIGRATION_MAJOR,
     .base.minor_version = SPICE_INTERFACE_MIGRATION_MINOR,
     .migrate_connect_complete = migrate_connect_complete_cb,
-    .migrate_end_complete = NULL,
+    .migrate_end_complete = migrate_end_complete_cb,
 };
 
 static SpiceMigration spice_migrate;
@@ -305,6 +309,12 @@ static void migrate_connect_complete_cb(SpiceMigrateInstance *sin)
         sm->connect_complete.cb(sm->connect_complete.opaque, NULL);
     }
     sm->connect_complete.cb = NULL;
+}
+
+static void migrate_end_complete_cb(SpiceMigrateInstance *sin)
+{
+    monitor_protocol_event(QEVENT_SPICE_MIGRATE_COMPLETED, NULL);
+    spice_migration_completed = true;
 }
 #endif
 
@@ -346,7 +356,8 @@ static const char *stream_video_names[] = {
     [ SPICE_STREAM_VIDEO_FILTER ] = "filter",
 };
 #define parse_stream_video(_name) \
-    name2enum(_name, stream_video_names, ARRAY_SIZE(stream_video_names))
+    parse_name(_name, "stream video control", \
+               stream_video_names, ARRAY_SIZE(stream_video_names))
 
 static const char *compression_names[] = {
     [ SPICE_IMAGE_COMPRESS_OFF ]      = "off",
@@ -437,6 +448,7 @@ SpiceInfo *qmp_query_spice(Error **errp)
     }
 
     info->enabled = true;
+    info->migrated = spice_migration_completed;
 
     addr = qemu_opt_get(opts, "addr");
     port = qemu_opt_get_number(opts, "port", 0);
@@ -489,6 +501,8 @@ static void migration_state_notifier(Notifier *notifier, void *data)
     } else if (migration_has_finished(s)) {
 #ifndef SPICE_INTERFACE_MIGRATION
         spice_server_migrate_switch(spice_server);
+        monitor_protocol_event(QEVENT_SPICE_MIGRATE_COMPLETED, NULL);
+        spice_migration_completed = true;
 #else
         spice_server_migrate_end(spice_server, true);
     } else if (migration_has_failed(s)) {
@@ -547,6 +561,20 @@ static int add_channel(const char *name, const char *value, void *opaque)
     return 0;
 }
 
+static void vm_change_state_handler(void *opaque, int running,
+                                    RunState state)
+{
+#if SPICE_SERVER_VERSION >= 0x000b02 /* 0.11.2 */
+    if (running) {
+        qemu_spice_display_start();
+        spice_server_vm_start(spice_server);
+    } else {
+        spice_server_vm_stop(spice_server);
+        qemu_spice_display_stop();
+    }
+#endif
+}
+
 void qemu_spice_init(void)
 {
     QemuOpts *opts = QTAILQ_FIRST(&qemu_spice_opts.head);
@@ -560,20 +588,33 @@ void qemu_spice_init(void)
     int port, tls_port, len, addr_flags;
     spice_image_compression_t compression;
     spice_wan_compression_t wan_compr;
+#if SPICE_UNIX_SOCKET
     const char *unix_socket;
+    static const int on=1;
+#endif
+#if SPICE_SERVER_VERSION >= 0x000b02 /* 0.11.2 */
+    bool seamless_migration;
+#endif
 
     qemu_thread_get_self(&me);
 
     if (!opts) {
         return;
     }
-    unix_socket = qemu_opt_get(opts, "sock");
     port = qemu_opt_get_number(opts, "port", 0);
     tls_port = qemu_opt_get_number(opts, "tls-port", 0);
+#if SPICE_UNIX_SOCKET
+    unix_socket = qemu_opt_get(opts, "sock");
     if (!port && !tls_port && !unix_socket) {
         error_report("neither sock, port nor tls-port specified for spice");
         exit(1);
     }
+#else
+    if (!port && !tls_port) {
+        error_report("neither port nor tls-port specified for spice");
+        exit(1);
+    }
+#endif
     if (port < 0 || port > 65535) {
         error_report("spice port is out of range");
         exit(1);
@@ -642,6 +683,7 @@ void qemu_spice_init(void)
                              x509_dh_file,
                              tls_ciphers);
     }
+#if SPICE_UNIX_SOCKET
     if (unix_socket) {
         char *dpy;
         int lsock;
@@ -651,6 +693,7 @@ void qemu_spice_init(void)
         setsockopt(lsock, SOL_SOCKET, SO_REUSEADDR, (void *)&on, sizeof(on));
         spice_server_set_listen_socket_fd(spice_server, lsock);
     }
+#endif
     if (password) {
         spice_server_set_ticket(spice_server, password, 0, 0, 0);
     }
@@ -714,6 +757,10 @@ void qemu_spice_init(void)
     spice_server_set_uuid(spice_server, qemu_uuid);
 #endif
 
+#if SPICE_SERVER_VERSION >= 0x000b02 /* 0.11.2 */
+    seamless_migration = qemu_opt_get_bool(opts, "seamless-migration", 0);
+    spice_server_set_seamless_migration(spice_server, seamless_migration);
+#endif
     if (0 != spice_server_init(spice_server, &core_interface)) {
         error_report("failed to initialize spice server");
         exit(1);
@@ -730,6 +777,8 @@ void qemu_spice_init(void)
 
     qemu_spice_input_init();
     qemu_spice_audio_init();
+
+    qemu_add_vm_change_state_handler(vm_change_state_handler, &spice_server);
 
     g_free(x509_key_file);
     g_free(x509_cert_file);
@@ -753,6 +802,7 @@ int qemu_spice_add_interface(SpiceBaseInstance *sin)
         spice_server = spice_server_new();
         spice_server_init(spice_server, &core_interface);
     }
+
     return spice_server_add_interface(spice_server, sin);
 }
 

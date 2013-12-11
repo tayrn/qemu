@@ -493,6 +493,9 @@ void monitor_protocol_event(MonitorEvent event, QObject *data)
         case QEVENT_WAKEUP:
             event_name = "WAKEUP";
             break;
+        case QEVENT_SPICE_MIGRATE_COMPLETED:
+            event_name = "SPICE_MIGRATE_COMPLETED";
+            break;
         default:
             abort();
             break;

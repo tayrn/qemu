@@ -27,8 +27,8 @@
  *   available at http://home.worldonline.dk/~finth/
  */
 #include "hw.h"
-#include "pc.h"
 #include "pci.h"
+#include "vga-pci.h"
 #include "console.h"
 #include "vga_int.h"
 #include "loader.h"
@@ -2851,7 +2851,8 @@ static void cirrus_init_common(CirrusVGAState * s, int device_id, int is_pci,
 
     /* I/O handler for LFB */
     memory_region_init_io(&s->cirrus_linear_io, &cirrus_linear_io_ops, s,
-                          "cirrus-linear-io", VGA_RAM_SIZE);
+                          "cirrus-linear-io", s->vga.vram_size_mb
+                                              * 1024 * 1024);
 
     /* I/O handler for LFB */
     memory_region_init_io(&s->cirrus_linear_bitblt_io,
@@ -2891,7 +2892,7 @@ static int vga_initfn(ISADevice *dev)
     ISACirrusVGAState *d = DO_UPCAST(ISACirrusVGAState, dev, dev);
     VGACommonState *s = &d->cirrus_vga.vga;
 
-    vga_common_init(s, VGA_RAM_SIZE);
+    vga_common_init(s);
     cirrus_init_common(&d->cirrus_vga, CIRRUS_ID_CLGD5430, 0,
                        isa_address_space(dev));
     s->ds = graphic_console_init(s->update, s->invalidate,
@@ -2933,7 +2934,7 @@ static int pci_cirrus_vga_initfn(PCIDevice *dev)
      int16_t device_id = pc->device_id;
 
      /* setup VGA */
-     vga_common_init(&s->vga, VGA_RAM_SIZE);
+     vga_common_init(&s->vga);
      cirrus_init_common(s, device_id, 1, pci_address_space(dev));
      s->vga.ds = graphic_console_init(s->vga.update, s->vga.invalidate,
                                       s->vga.screen_dump, s->vga.text_update,
